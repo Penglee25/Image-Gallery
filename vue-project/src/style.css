@@ -1,0 +1,17 @@
+@import url("https://fonts.googleapis.com/css2?family=Dosis:wght@200;300;400;500;600;700;800&display=swap");
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer components {
+  .anim {
+    @apply transition-all ease-in-out duration-500;
+  }
+}
+
+@layer utilities {
+  .text-neon-blue {
+    text-shadow: 0 0 8px #00bfff, 0 0 16px #00bfff;
+  }
+}
