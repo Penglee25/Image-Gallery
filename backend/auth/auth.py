@@ -68,7 +68,8 @@ def login_user_endpoint(data: LoginRequest):
         return {
             "message": "Login successful",
             "access_token": result.session.access_token,
-            "user_id": user_id
+            "user_id": user_id,
+            "email": result.user.email
         }
 
     except Exception as e:

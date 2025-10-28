@@ -18,7 +18,7 @@
             </nav>
 
             <div class="p-6">
-                <h2 class="text-xl font-semibold mb-4">Welcome to your gallery!</h2>
+                <span class="text-lg font-semibold mb-4">Welcome to your gallery {{ email }}!</span>
 
                 <!-- Drag and Drop -->
                 <DragAndDrop />
@@ -48,6 +48,8 @@ import DragAndDrop from '../components/DragAndDrop.vue'
 const router = useRouter()
 const darkMode = ref(false)
 const uploadedImages = ref([])
+
+const email = localStorage.getItem('email');
 
 const toggleDarkMode = () => {
     darkMode.value = !darkMode.value

@@ -1,6 +1,7 @@
 <template>
     <div class="bg-gray-100 dark:bg-gray-900 text-gray-900 flex items-center justify-center mb-10">
         <div class="lg:max-w-xl w-full mx-auto p-6 bg-white dark:bg-gray-900 text-gray-900 rounded-md shadow-md">
+
             <!-- Drop Zone -->
             <label @dragover.prevent="onDragOver" @dragleave="onDragLeave" @drop.prevent="onDrop"
                 class="flex flex-col items-center w-full h-40 p-6 border-2 border-gray-300 border-dashed rounded-md cursor-pointer hover:border-gray-400 transition"
@@ -18,75 +19,87 @@
                     ref="fileInput" />
             </label>
 
-            <!-- Preview + Upload Progress -->
+            <!-- Upload Button -->
+            <div class="mt-4 flex justify-center" v-if="files.length">
+                <button @click="uploadAll" :disabled="isUploading"
+                    class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2">
+                    <span v-if="!isUploading">Upload All</span>
+                    <span v-else>Uploading...</span>
+                    <svg v-if="isUploading" class="w-4 h-4 animate-spin" fill="none" stroke="currentColor"
+                        viewBox="0 0 24 24">
+                        <circle cx="12" cy="12" r="10" stroke-width="4" stroke-opacity="0.25" />
+                        <path d="M4 12a8 8 0 018-8v8H4z" stroke-width="4" stroke-linecap="round"
+                            stroke-linejoin="round" />
+                    </svg>
+                </button>
+            </div>
+
+            <!-- Preview + AI Results -->
             <div class="mt-4 grid grid-cols-2 gap-4">
                 <div v-for="(file, index) in files" :key="file.tempId"
                     class="relative group bg-gray-100 dark:bg-gray-800 p-2 rounded-md">
                     <img :src="file.thumbnail" class="w-full h-32 object-cover rounded-md mb-2" />
 
-                    <!-- File Info -->
-                    <div class="text-xs text-gray-600 mb-2">
-                        {{ file.name }}
-                    </div>
+                    <div class="text-xs text-gray-600 dark:text-gray-200 mb-2">{{ file.name }}</div>
 
-                    <!-- Upload Progress -->
-                    <div v-if="file.uploading" class="w-full bg-gray-300 h-2 rounded mb-2">
-                        <div class="bg-blue-500 h-2 rounded transition-all" :style="{ width: file.progress + '%' }">
+                    <!-- AI Skeleton -->
+                    <div v-if="file.ai_processing_status === 'processing'" class="space-y-1">
+                        <span class="font-semibold">Tags:</span>
+                        <div class="h-4 w-32 bg-gray-300 dark:bg-gray-700 rounded animate-pulse"></div>
+                        <span class="font-semibold">Description:</span>
+                        <div class="h-4 w-full bg-gray-300 dark:bg-gray-700 rounded animate-pulse"></div>
+                        <span class="font-semibold">Colors:</span>
+                        <div class="flex gap-1">
+                            <div class="w-4 h-4 bg-gray-300 rounded animate-pulse"></div>
+                            <div class="w-4 h-4 bg-gray-300 rounded animate-pulse"></div>
+                            <div class="w-4 h-4 bg-gray-300 rounded animate-pulse"></div>
                         </div>
-                        <div class="text-xs text-gray-500 mt-1">Uploading: {{ file.progress }}%</div>
-                    </div>
-
-                    <!-- AI Processing Status -->
-                    <div class="text-xs mb-2 mt-5">
-                        <span :class="{
-                            'text-yellow-600': file.ai_processing_status === 'pending',
-                            'text-green-600': file.ai_processing_status === 'done',
-                            'text-red-600': file.ai_processing_status === 'failed',
-                            'text-blue-600': file.ai_processing_status === 'processing'
-                        }">
-                            AI: {{ file.ai_processing_status }}
-                        </span>
                     </div>
 
                     <!-- AI Results -->
-                    <div class="text-xs text-gray-700 dark:text-gray-200 space-y-1">
+                    <div v-else-if="file.ai_processing_status === 'done'"
+                        class="text-xs text-gray-700 dark:text-gray-200 space-y-1">
                         <div v-if="file.tags.length" class="flex flex-wrap gap-1">
                             <span class="font-semibold">Tags:</span>
                             <span v-for="tag in file.tags" :key="tag"
-                                class="bg-blue-100 text-blue-800 px-1 rounded text-xs">
-                                {{ tag }}
-                            </span>
+                                class="bg-blue-100 text-blue-800 px-1 rounded text-xs">{{ tag }}</span>
                         </div>
                         <div v-if="file.description" class="truncate">
                             <span class="font-semibold">Desc:</span> {{ file.description }}
                         </div>
                         <div v-if="file.colors.length" class="flex items-center gap-1">
                             <span class="font-semibold">Colors:</span>
-                            <span v-for="color in file.colors" :key="color" :style="{ backgroundColor: color }"
-                                class="inline-block w-4 h-4 rounded-full border border-gray-300" :title="color">
-                            </span>
+                            <span v-for="color in file.colors.slice(0, 3)" :key="color"
+                                :style="{ backgroundColor: color }"
+                                class="inline-block w-4 h-4 rounded-full border border-gray-300" :title="color"></span>
                         </div>
                     </div>
+
+                    <div v-else-if="file.ai_processing_status === 'failed'" class="text-red-600">AI: Failed</div>
 
                     <button @click="removeFile(index)"
                         class="absolute top-2 right-2 text-white bg-red-500 border-none rounded-md px-2 py-1 opacity-0 group-hover:opacity-100 transition text-xs">×</button>
                 </div>
             </div>
+
         </div>
     </div>
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { ref, nextTick } from 'vue'
 import { analyzeImage } from '../api/huggingface'
+import ColorThief from 'colorthief'
 import api from '../api/axios'
+import Swal from "sweetalert2"
 
 const files = ref([])
 const isDragging = ref(false)
 const fileInput = ref(null)
+const isUploading = ref(false)
 
-const onDragOver = () => { isDragging.value = true }
-const onDragLeave = () => { isDragging.value = false }
+const onDragOver = () => isDragging.value = true
+const onDragLeave = () => isDragging.value = false
 const onDrop = (e) => { isDragging.value = false; handleFiles(e.dataTransfer.files) }
 const onFileChange = () => handleFiles(fileInput.value.files)
 
@@ -94,92 +107,115 @@ const handleFiles = (selectedFiles) => {
     for (const file of selectedFiles) {
         if (!['image/jpeg', 'image/png'].includes(file.type)) continue
 
-        const reader = new FileReader()
+        const reader = new FileReader();
         reader.onload = async (e) => {
             const thumbnail = await createThumbnail(e.target.result)
             const tempFile = {
                 tempId: crypto.randomUUID(),
-                file: file,
+                file,
                 name: file.name,
                 thumbnail,
-                uploading: false, // no upload yet
                 ai_processing_status: 'processing',
                 tags: [],
                 description: '',
                 colors: [],
             }
             files.value.push(tempFile)
-
-            // Run AI in frontend
-            try {
-                tempFile.tags = await analyzeImage(file)
-
-                // Extract colors using ColorThief
-                const img = new Image()
-                img.src = tempFile.thumbnail
-                img.crossOrigin = 'Anonymous'
-                img.onload = () => {
-                    const colorThief = new ColorThief()
-                    const palette = colorThief.getPalette(img, 5)
-                    tempFile.colors = palette.map(c => `rgb(${c[0]},${c[1]},${c[2]})`)
-                    tempFile.ai_processing_status = 'done'
-                }
-            } catch (err) {
-                tempFile.ai_processing_status = 'failed'
-            }
+            await nextTick()
+            runAI(tempFile)
         }
         reader.readAsDataURL(file)
     }
 }
 
-const createThumbnail = (imageSrc) => {
-    return new Promise((resolve) => {
+const runAI = async (fileObj) => {
+    try {
+        const { tags, description } = await analyzeImage(fileObj.file)
+
         const img = new Image()
-        img.src = imageSrc
+        img.src = fileObj.thumbnail
+        img.crossOrigin = 'Anonymous'
         img.onload = () => {
-            const canvas = document.createElement('canvas')
-            const size = 300
-            canvas.width = size
-            canvas.height = size
-            const ctx = canvas.getContext('2d')
-            const scale = Math.min(size / img.width, size / img.height)
-            const x = (size - img.width * scale) / 2
-            const y = (size - img.height * scale) / 2
-            ctx.clearRect(0, 0, size, size)
-            ctx.drawImage(img, x, y, img.width * scale, img.height * scale)
-            resolve(canvas.toDataURL())
-        }
-    })
-}
+            const colorThief = new ColorThief()
+            const palette = colorThief.getPalette(img, 5)
+            const colors = palette.map(c => `rgb(${c[0]},${c[1]},${c[2]})`)
 
-const removeFile = (index) => {
-    files.value.splice(index, 1)
-}
-
-// Later, you can implement a separate upload button
-const uploadAll = async () => {
-    for (const fileObj of files.value) {
-        if (fileObj.uploading) continue
-        fileObj.uploading = true
-        try {
-            const formData = new FormData()
-            formData.append('files', fileObj.file)
-            const userId = localStorage.getItem('user_id')
-
-            const res = await api.post('/upload', formData, {
-                headers: {
-                    'Content-Type': 'multipart/form-data',
-                    'X-User-Id': userId
+            const index = files.value.findIndex(f => f.tempId === fileObj.tempId)
+            if (index !== -1) {
+                files.value[index] = {
+                    ...fileObj,
+                    tags,
+                    description,
+                    colors: colors.slice(0, 3), // top 3 dominant
+                    ai_processing_status: 'done'
                 }
-            })
-
-            fileObj.uploading = false
-            fileObj.ai_processing_status = 'done'
-        } catch (err) {
-            console.error('Upload error:', err)
-            fileObj.uploading = false
-            fileObj.ai_processing_status = 'failed'
+            }
         }
+    } catch (err) {
+        const index = files.value.findIndex(f => f.tempId === fileObj.tempId)
+        if (index !== -1) files.value[index].ai_processing_status = 'failed'
     }
 }
+
+const createThumbnail = (imageSrc) => new Promise(resolve => {
+    const img = new Image()
+    img.src = imageSrc
+    img.onload = () => {
+        const canvas = document.createElement('canvas')
+        const size = 300
+        canvas.width = size
+        canvas.height = size
+        const ctx = canvas.getContext('2d')
+        const scale = Math.min(size / img.width, size / img.height)
+        const x = (size - img.width * scale) / 2
+        const y = (size - img.height * scale) / 2
+        ctx.clearRect(0, 0, size, size)
+        ctx.drawImage(img, x, y, img.width * scale, img.height * scale)
+        resolve(canvas.toDataURL())
+    }
+})
+
+const uploadAll = async () => {
+    if (!files.value.length) return
+    const userId = localStorage.getItem('user_id')
+    if (!userId) return alert("User ID missing")
+    isUploading.value = true
+
+    try {
+        const formData = new FormData()
+        files.value.forEach(f => formData.append('files', f.file))
+
+        const res = await api.post('/upload', formData, {
+            headers: { 'Content-Type': 'multipart/form-data', 'X-User-Id': userId },
+            onUploadProgress: (e) => {
+                const progress = Math.round((e.loaded / e.total) * 100)
+                files.value.forEach(f => f.progress = progress)
+            }
+        })
+
+        res.data.uploaded.forEach((uploaded, index) => {
+            const file = files.value[index]
+            file.image_id = uploaded.image_id
+            const topColors = file.colors.slice(0, 3)
+
+            // Send AI metadata to backend
+            api.post('/ai-metadata', {
+                image_id: file.image_id,
+                user_id: userId,
+                description: file.description || '',
+                tags: file.tags,
+                colors: topColors,
+                ai_processing_status: file.ai_processing_status
+            }).catch(err => console.error(err))
+        })
+
+        Swal.fire({ position: "top-end", icon: "success", title: "Image successfully uploaded", showConfirmButton: false, timer: 4500 })
+    } catch (err) {
+        console.error('Upload failed:', err)
+    } finally {
+        isUploading.value = false
+    }
+}
+
+const removeFile = (index) => files.value.splice(index, 1)
 </script>

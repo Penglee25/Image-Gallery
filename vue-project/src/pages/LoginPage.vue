@@ -72,6 +72,7 @@ const handleLogin = async () => {
         // Optionally store token for authenticated routes
         localStorage.setItem('token', response.data.access_token);
         localStorage.setItem('user_id', response.data.user_id);
+        localStorage.setItem('email', response.data.email);
 
         setTimeout(() => {
             router.push('/gallery');
