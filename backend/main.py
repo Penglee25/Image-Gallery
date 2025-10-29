@@ -20,7 +20,8 @@ app = FastAPI()
 
 origins = [
     "https://image-gallery-frontend-t0lb.onrender.com", 
-    # "http://localhost:5173",  # optional: for local dev
+    "http://localhost:5173",
+    "http://localhost:4173",
 ]
 
 app.add_middleware(
