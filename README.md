@@ -72,8 +72,20 @@ pip install -r requirements.txt
 5. Create a `.env` file (copy from `.env.example`) and add your Supabase URL and API key:
 
 ```
-SUPABASE_URL=your-supabase-url
-SUPABASE_KEY=your-supabase-key
+# === Backend API URL ===
+VITE_API_BASE_URL=http://127.0.0.1:8000
+
+# === Supabase Client Config (for direct auth if needed) ===
+VITE_SUPABASE_URL=your-supabase-url
+VITE_SUPABASE_ANON_KEY=your-supabase-anon-key
+VITE_HUGGINGFACE_API_KEY=your-hugging-face-key
+VITE_SUPABASE_STORAGE_URL=https://xxxxxxx.supabase.co/storage/v1/object/public/images/
+
+# === Environment ===
+VITE_APP_NAME=AI Image Gallery
+VITE_ENV=development
+
+# === implement the same api key in backend
 ```
 
 6. Run the backend locally:
