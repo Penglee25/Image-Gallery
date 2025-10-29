@@ -108,7 +108,7 @@ import { ref, computed, nextTick } from 'vue'
 import { analyzeImage } from '../api/huggingface'
 import ColorThief from 'colorthief'
 import api from '../api/axios'
-import Swal from "sweetalert2"
+import { showToast } from '../utils/toast'
 
 const files = ref([])
 const isDragging = ref(false)
@@ -239,7 +239,8 @@ const uploadAll = async () => {
 
         clearAllFiles()
         emit('upload-complete')
-        Swal.fire({ position: "top-end", icon: "success", title: "Image successfully uploaded", showConfirmButton: false, timer: 4500 })
+
+        showToast("success", "Image successfully uploaded");
     } catch (err) {
         console.error('Upload failed:', err)
     } finally {

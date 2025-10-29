@@ -41,7 +41,8 @@
 import { ref } from 'vue';
 import api from '../api/axios';
 import { useRouter } from 'vue-router';
-import Swal from "sweetalert2";
+import { showToast } from '../utils/toast';
+
 
 const email = ref('');
 const password = ref('');
@@ -61,13 +62,7 @@ const handleLogin = async () => {
 
         success.value = true;
 
-        Swal.fire({
-            position: "top-end",
-            icon: "success",
-            title: response.data.message || 'Login successful!',
-            showConfirmButton: false,
-            timer: 4500
-        });
+        showToast("success", "Login successful");
 
         // Optionally store token for authenticated routes
         localStorage.setItem('token', response.data.access_token);

@@ -133,6 +133,7 @@ import { ref, watch, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import DragAndDrop from '../components/DragAndDrop.vue'
 import api from '../api/axios'
+import { showToast } from '../utils/toast'
 
 const router = useRouter()
 const darkMode = ref(false)
@@ -153,7 +154,10 @@ const showTagModal = ref(false)
 const editableTags = ref('')
 const currentImage = ref(null)
 
+
+
 const fetchGallery = async () => {
+
     try {
         const params = new URLSearchParams()
         if (searchQuery.value) params.append('query', searchQuery.value)
@@ -185,30 +189,38 @@ const openTagEditor = (img) => {
 
 const saveTags = async () => {
     if (!currentImage.value) return
+
     try {
-        const newTags = editableTags.value.split(',').map(t => t.trim()).filter(Boolean)
-        const res = await api.get(`/gallery/update-tags`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'x-user-id': userId,
-            },
-            body: JSON.stringify({
+        const newTags = editableTags.value
+            .split(',')
+            .map(t => t.trim())
+            .filter(Boolean)
+
+        const res = await api.post(
+            `/gallery/update-tags`,
+            {
                 image_id: String(currentImage.value.image_id),
                 tags: newTags,
-            }),
-        })
-        const data = await res.json()
-        if (data.status === 'success') {
+            },
+            {
+                headers: {
+                    'x-user-id': userId,
+                },
+            }
+        )
+
+        if (res.data.status === 'success') {
             showTagModal.value = false
             fetchGallery()
+            showToast("success", "Tags successfully updated");
         } else {
-            console.error('Update failed:', data.message)
+            console.error('Update failed:', res.data.message)
         }
     } catch (err) {
-        console.error('Error updating tags:', err)
+        console.error('Error updating tags:', err.response?.data || err)
     }
 }
+
 
 const downloadImage = (img) => {
     if (!img.filename || !img.user_id) return alert("Invalid image data");

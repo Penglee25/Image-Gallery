@@ -48,7 +48,7 @@
 import { ref } from "vue";
 import api from "../api/axios"; // import your axios instance
 import { useRouter } from "vue-router";
-import Swal from "sweetalert2";
+import { showToast } from "../utils/toast";
 
 const router = useRouter();
 
@@ -73,13 +73,9 @@ const handleSignUp = async () => {
             password: password.value,
         });
 
-        Swal.fire({
-            position: "top-end",
-            icon: "success",
-            title: "Account created successfully!",
-            showConfirmButton: false,
-            timer: 4500
-        });
+        
+        showToast("success", "Account created successfully!");
+
         console.log("✅ Signup success:", data);
 
         // redirect to login
