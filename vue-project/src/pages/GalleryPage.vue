@@ -132,6 +132,7 @@
 import { ref, watch, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import DragAndDrop from '../components/DragAndDrop.vue'
+import api from '../api/axios'
 
 const router = useRouter()
 const darkMode = ref(false)
@@ -161,7 +162,7 @@ const fetchGallery = async () => {
         params.append('page', page.value)
         params.append('limit', limit.value)
 
-        const res = await fetch(`http://127.0.0.1:8000/gallery/search?${params}`, {
+        const res = await api.get(`/gallery/search?${params}`, {
             headers: { 'x-user-id': userId },
         })
         const data = await res.json()
@@ -184,7 +185,7 @@ const saveTags = async () => {
     if (!currentImage.value) return
     try {
         const newTags = editableTags.value.split(',').map(t => t.trim()).filter(Boolean)
-        const res = await fetch(`http://127.0.0.1:8000/gallery/update-tags`, {
+        const res = await api.get(`/gallery/update-tags`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
