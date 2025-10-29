@@ -13,9 +13,14 @@ from auth.gallery import router as gallery_router
 app = FastAPI()
 
 # CORS setup
+# origins = [
+#     "http://localhost:5173",
+#     "http://127.0.0.1:5173",
+# ]
+
 origins = [
-    "http://localhost:5173",
-    "http://127.0.0.1:5173",
+    "https://image-gallery-frontend-t0lb.onrender.com", 
+    # "http://localhost:5173",  # optional: for local dev
 ]
 
 app.add_middleware(
