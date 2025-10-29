@@ -165,7 +165,9 @@ const fetchGallery = async () => {
         const res = await api.get(`/gallery/search?${params}`, {
             headers: { 'x-user-id': userId },
         })
-        const data = await res.json()
+
+        // Axios already parses JSON
+        const data = res.data
 
         gallery.value = data.data || []
         totalPages.value = data.total_pages || 1
