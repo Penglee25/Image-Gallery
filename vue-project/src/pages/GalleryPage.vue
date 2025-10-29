@@ -50,7 +50,7 @@
 
 
                     <!-- Gallery Grid -->
-                    <div v-if="gallery.length" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+                    <div v-if="gallery.length" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                         <div v-for="img in gallery" :key="img.image_id"
                             class="bg-white dark:bg-gray-800 rounded-lg shadow p-2">
                             <img :src="`${SUPABASE_STORAGE_URL}/${img.user_id}/${img.filename}`"
