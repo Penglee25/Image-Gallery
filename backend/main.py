@@ -7,6 +7,8 @@ import os
 # Routers
 from auth.auth import router as auth_router
 from auth.upload import router as upload_router
+from auth.gallery import router as gallery_router
+
 
 app = FastAPI()
 
@@ -38,6 +40,7 @@ else:
 # Include routers
 app.include_router(auth_router, prefix="", tags=["auth"])
 app.include_router(upload_router, prefix="", tags=["upload"])
+app.include_router(gallery_router, prefix="", tags=["gallery"])
 
 
 @app.get("/")

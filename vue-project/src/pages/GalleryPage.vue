@@ -1,55 +1,158 @@
 <template>
     <div :class="darkMode ? 'dark' : ''">
         <div class="min-h-screen bg-gray-100 dark:bg-gray-900 text-gray-900 dark:text-gray-100 transition-colors">
+            <!-- Navbar -->
             <nav class="flex items-center justify-between px-6 py-4 bg-white dark:bg-gray-800 shadow">
-                <h1 class="text-2xl font-semibold">Image Gallery</h1>
+                <div class="w-full flex flex-col md:flex-row items-start justify-between gap-4">
+                    <h1 class="text-xl font-semibold">Image Gallery</h1>
 
-                <div class="flex items-center gap-4">
-                    <button @click="toggleDarkMode"
-                        class="px-3 py-2 rounded-md bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 transition">
-                        {{ darkMode ? '🌙 Dark' : '☀️ Light' }}
-                    </button>
+                    <div class="flex gap-2 justify-end">
+                        <span class="text-lg font-semibold">Welcome, {{ email }}!</span>
 
-                    <button @click="handleLogout"
-                        class="px-3 py-2 rounded-md bg-red-500 hover:bg-red-600 text-white transition">
-                        Logout
-                    </button>
+                        <div class="flex gap-2">
+                            <button @click="toggleDarkMode"
+                                class="px-3 py-2 rounded-md bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 transition">
+                                {{ darkMode ? '🌙 Dark' : '☀️ Light' }}
+                            </button>
+                            <button @click="handleLogout"
+                                class="px-3 py-2 rounded-md bg-red-500 hover:bg-red-600 text-white transition">
+                                Logout
+                            </button>
+                        </div>
+                    </div>
                 </div>
             </nav>
 
             <div class="p-6">
-                <span class="text-lg font-semibold mb-4">Welcome to your gallery {{ email }}!</span>
+                <!-- Upload -->
+                <DragAndDrop @upload-complete="fetchGallery" />
 
-                <!-- Drag and Drop -->
-                <DragAndDrop />
+                <!-- Search -->
+                <div class="flex gap-2 mb-4 mt-6">
+                    <input v-model="searchQuery" type="text" placeholder="Search by description or tags..."
+                        class="border rounded px-3 py-2 flex-1" />
 
-                <!-- Display Uploaded Images with AI info -->
-                <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4 mt-6">
-                    <div v-for="file in uploadedImages" :key="file.tempId"
-                        class="bg-gray-200 dark:bg-gray-700 rounded-lg p-2">
-                        <img :src="file.thumbnail" class="w-full h-32 object-cover rounded-md mb-1" />
-                        <div class="text-xs text-gray-800 dark:text-gray-200">
-                            <div v-if="file.tags.length">Tags: {{ file.tags.join(', ') }}</div>
-                            <div v-if="file.description">Desc: {{ file.description }}</div>
-                        </div>
-                    </div>
                 </div>
 
+                <!-- Active Filters -->
+
+
+                <!-- Gallery -->
+                <div class="bg-white dark:bg-gray-800 rounded-lg p-5">
+
+                    <div class="flex gap-2 justify-end w-full" v-if="selectedColor || similarTags.length">
+                        <div class="mb-4 text-sm text-gray-500">
+                            <span v-if="selectedColor">🎨 Color: <b>{{ selectedColor }}</b></span>
+                            <span v-if="similarTags.length"> | Similar tags: <b>{{ similarTags.join(', ') }}</b></span>
+                        </div>
+
+                        <span @click="clearFilters" class="cursor-pointer">
+                            ⛔
+                        </span>
+                    </div>
+
+                    <div v-if="gallery.length" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+                        <div v-for="img in gallery" :key="img.image_id"
+                            class="bg-white dark:bg-gray-800 rounded-lg shadow p-2">
+
+                            <!-- Image -->
+                            <img :src="`${SUPABASE_STORAGE_URL}/${img.user_id}/${img.filename}`"
+                                class="w-full h-48 object-contain rounded" alt="thumbnail" />
+
+                            <!-- Metadata -->
+                            <div class="mt-2 text-xs">
+                                <p class="line-clamp-2">
+                                    <span class="font-bold rounded-md dark:text-white">Description: </span>
+                                    {{ img.description }}
+                                </p>
+
+                                <!-- Colors -->
+                                <div class="flex gap-1 mt-2">
+                                    <span class="font-bold rounded-md dark:text-white">Color: </span>
+                                    <div v-for="color in img.colors" :key="color" :style="{ backgroundColor: color }"
+                                        class="w-4 h-4 rounded border cursor-pointer" @click="filterByColor(color)">
+                                    </div>
+                                </div>
+
+                                <!-- Tags -->
+                                <div class="mt-1 flex flex-wrap gap-1">
+                                    <span class="font-bold rounded-md dark:text-white">Tags: </span>
+                                    <span v-for="tag in img.tags" :key="tag"
+                                        class="bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 px-1.5 py-0.5 rounded text-xs">
+                                        #{{ tag }}
+                                    </span>
+                                </div>
+
+                                <!-- Similar button -->
+                                <button @click="findSimilar(img)"
+                                    class="px-4 py-2 bg-blue-600 text-white rounded-md text-sm hover:bg-blue-700 mt-2">
+                                    Find Similar
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <p v-else class="text-gray-400 mt-10 text-center">No images found.</p>
+                </div>
             </div>
         </div>
     </div>
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, watch, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import DragAndDrop from '../components/DragAndDrop.vue'
 
 const router = useRouter()
 const darkMode = ref(false)
-const uploadedImages = ref([])
+const email = localStorage.getItem('email')
+const userId = localStorage.getItem('user_id')
+const SUPABASE_STORAGE_URL = import.meta.env.VITE_SUPABASE_STORAGE_URL
 
-const email = localStorage.getItem('email');
+const gallery = ref([])
+const searchQuery = ref('')
+const selectedColor = ref(null)
+const similarTags = ref([])
+
+const fetchGallery = async () => {
+    try {
+        const params = new URLSearchParams()
+        if (searchQuery.value) params.append('query', searchQuery.value)
+        if (selectedColor.value) params.append('color', selectedColor.value)
+        if (similarTags.value.length) params.append('similar_tags', similarTags.value.join(','))
+
+        const res = await fetch(`http://127.0.0.1:8000/gallery/search?${params}`, {
+            headers: { 'x-user-id': userId },
+        })
+        const data = await res.json()
+        gallery.value = data.data || []
+    } catch (err) {
+        console.error('Fetch error:', err)
+    }
+}
+
+watch([searchQuery, selectedColor, similarTags], fetchGallery, { deep: true })
+onMounted(fetchGallery)
+
+const filterByColor = (color) => {
+    selectedColor.value = color
+    searchQuery.value = ''
+    similarTags.value = []
+}
+
+const findSimilar = (img) => {
+    similarTags.value = img.tags || []
+    selectedColor.value = null
+    searchQuery.value = ''
+}
+
+const clearFilters = () => {
+    searchQuery.value = ''
+    selectedColor.value = null
+    similarTags.value = []
+    fetchGallery()
+}
 
 const toggleDarkMode = () => {
     darkMode.value = !darkMode.value
@@ -60,6 +163,7 @@ const toggleDarkMode = () => {
 const handleLogout = () => {
     localStorage.removeItem('user_id')
     localStorage.removeItem('token')
+    localStorage.removeItem('email')
     router.push('/login')
 }
 
@@ -69,8 +173,11 @@ onMounted(() => {
 })
 </script>
 
-<style>
-html {
-    transition: background-color 0.3s, color 0.3s;
+<style scoped>
+.line-clamp-2 {
+    overflow: hidden;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
 }
 </style>

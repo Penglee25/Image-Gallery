@@ -1,4 +1,3 @@
-# auth/upload.py
 import os
 from fastapi import APIRouter, UploadFile, File, Header, HTTPException
 from fastapi.responses import JSONResponse
@@ -7,6 +6,7 @@ from uuid import uuid4
 from PIL import Image
 from io import BytesIO
 from pydantic import BaseModel
+import mimetypes
 
 router = APIRouter()
 
@@ -54,43 +54,62 @@ async def upload_files(
 
     for file in files:
         try:
+            # Read file content
             content = await file.read()
-            filename = f"{uuid4().hex}_{file.filename}"
-            thumbnail_bytes = create_thumbnail(content)
-            thumbnail_filename = f"thumb_{filename}"
 
-            # Upload original + thumbnail to Supabase
-            supabase.storage.from_(SUPABASE_BUCKET).upload(
-                f"{x_user_id}/{filename}", content, {"cacheControl": "3600"}
+            # Get extension safely
+            mime_type = file.content_type or mimetypes.guess_type(file.filename)[0]
+            ext = (
+                mimetypes.guess_extension(mime_type)
+                or os.path.splitext(file.filename)[1]
             )
+            ext = ext.lower().replace(".", "")
+
+            # Generate clean, unique filename
+            image_id = uuid4().hex
+            filename = f"{image_id}.{ext}"  # e.g. 49dcf1b8a3d24eaa8e2a.jpg
+            thumb_filename = f"thumb_{filename}"
+
+            # Create thumbnail
+            thumbnail_bytes = create_thumbnail(content)
+
+            # Upload original image
             supabase.storage.from_(SUPABASE_BUCKET).upload(
-                f"{x_user_id}/{thumbnail_filename}",
+                f"{x_user_id}/{filename}",
+                content,
+                {"cacheControl": "3600"},
+            )
+
+            # Upload thumbnail
+            supabase.storage.from_(SUPABASE_BUCKET).upload(
+                f"{x_user_id}/{thumb_filename}",
                 thumbnail_bytes,
                 {"cacheControl": "3600"},
             )
 
-            # Insert into images table
+            # Insert image record into database
             db_res = (
                 supabase.table("images")
                 .insert(
                     {
                         "user_id": x_user_id,
-                        "filename": file.filename,
+                        "filename": filename,  # use clean filename
                         "original_path": f"{x_user_id}/{filename}",
-                        "thumbnail_path": f"{x_user_id}/{thumbnail_filename}",
+                        "thumbnail_path": f"{x_user_id}/{thumb_filename}",
                     }
                 )
                 .execute()
             )
 
-            image_id = db_res.data[0]["id"] if db_res.data else None
+            image_id_db = db_res.data[0]["id"] if db_res.data else None
 
+            # Return info to frontend
             uploaded_results.append(
                 {
-                    "filename": file.filename,
+                    "filename": filename,
                     "original_path": f"{x_user_id}/{filename}",
-                    "thumbnail_path": f"{x_user_id}/{thumbnail_filename}",
-                    "image_id": image_id,
+                    "thumbnail_path": f"{x_user_id}/{thumb_filename}",
+                    "image_id": image_id_db,
                 }
             )
 
@@ -120,7 +139,7 @@ class AIMetadata(BaseModel):
 @router.post("/ai-metadata")
 async def insert_ai_metadata(data: AIMetadata):
     try:
-        
+
         def rgb_to_hex(rgb_str):
             # rgb_str = "rgb(41,184,103)"
             nums = [int(n) for n in rgb_str.strip("rgb()").split(",")]

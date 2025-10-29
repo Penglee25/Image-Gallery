@@ -21,10 +21,11 @@
 
             <!-- Upload Button -->
             <div class="mt-4 flex justify-center" v-if="files.length">
-                <button @click="uploadAll" :disabled="isUploading"
-                    class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2">
-                    <span v-if="!isUploading">Upload All</span>
-                    <span v-else>Uploading...</span>
+                <button @click="uploadAll" :disabled="isUploading || !allAIProcessed" class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 
+                           disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2">
+                    <span v-if="!isUploading && allAIProcessed">Upload All</span>
+                    <span v-else-if="isUploading">Uploading...</span>
+                    <span v-else>Processing AI...</span>
                     <svg v-if="isUploading" class="w-4 h-4 animate-spin" fill="none" stroke="currentColor"
                         viewBox="0 0 24 24">
                         <circle cx="12" cy="12" r="10" stroke-width="4" stroke-opacity="0.25" />
@@ -37,7 +38,7 @@
             <!-- Preview + AI Results -->
             <div class="mt-4 grid grid-cols-2 gap-4">
                 <div v-for="(file, index) in files" :key="file.tempId"
-                    class="relative group bg-gray-100 dark:bg-gray-800 p-2 rounded-md">
+                    class="relative group bg-gray-100 dark:bg-gray-800 p-2 rounded-md overflow-hidden">
                     <img :src="file.thumbnail" class="w-full h-32 object-cover rounded-md mb-2" />
 
                     <div class="text-xs text-gray-600 dark:text-gray-200 mb-2">{{ file.name }}</div>
@@ -87,7 +88,7 @@
 </template>
 
 <script setup>
-import { ref, nextTick } from 'vue'
+import { ref, computed, nextTick } from 'vue'
 import { analyzeImage } from '../api/huggingface'
 import ColorThief from 'colorthief'
 import api from '../api/axios'
@@ -98,10 +99,18 @@ const isDragging = ref(false)
 const fileInput = ref(null)
 const isUploading = ref(false)
 
+const emit = defineEmits(['upload-complete'])
+
 const onDragOver = () => isDragging.value = true
 const onDragLeave = () => isDragging.value = false
 const onDrop = (e) => { isDragging.value = false; handleFiles(e.dataTransfer.files) }
 const onFileChange = () => handleFiles(fileInput.value.files)
+
+// ✅ computed property that checks if all AI processing is finished
+const allAIProcessed = computed(() =>
+    files.value.length > 0 &&
+    files.value.every(f => ['done', 'failed'].includes(f.ai_processing_status))
+)
 
 const handleFiles = (selectedFiles) => {
     for (const file of selectedFiles) {
@@ -146,7 +155,7 @@ const runAI = async (fileObj) => {
                     ...fileObj,
                     tags,
                     description,
-                    colors: colors.slice(0, 3), // top 3 dominant
+                    colors: colors.slice(0, 3),
                     ai_processing_status: 'done'
                 }
             }
@@ -209,12 +218,19 @@ const uploadAll = async () => {
             }).catch(err => console.error(err))
         })
 
+        clearAllFiles()
+        emit('upload-complete')
         Swal.fire({ position: "top-end", icon: "success", title: "Image successfully uploaded", showConfirmButton: false, timer: 4500 })
     } catch (err) {
         console.error('Upload failed:', err)
     } finally {
         isUploading.value = false
     }
+}
+
+const clearAllFiles = () => {
+    files.value = []
+    if (fileInput.value) fileInput.value.value = ''
 }
 
 const removeFile = (index) => files.value.splice(index, 1)
