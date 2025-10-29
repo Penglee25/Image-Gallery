@@ -213,4 +213,4 @@ Here are some ideas to further enhance this project:
 > These improvements can help make the platform more robust, user-friendly, and scalable.
 
 ### Demo video
-[Watch the demo video]([https://drive.google.com/file/d/VIDEO_ID/view?usp=sharing](https://drive.google.com/file/d/18PxisfhviLGNOxsOvqds_JqRRVrROU-C/view))
+[Watch the demo video](https://drive.google.com/file/d/18PxisfhviLGNOxsOvqds_JqRRVrROU-C/view)
