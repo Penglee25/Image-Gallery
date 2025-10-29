@@ -21,19 +21,34 @@
 
             <!-- Upload Button -->
             <div class="mt-4 flex justify-center" v-if="files.length">
-                <button @click="uploadAll" :disabled="isUploading || !allAIProcessed" class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 
-                           disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2">
-                    <span v-if="!isUploading && allAIProcessed">Upload All</span>
-                    <span v-else-if="isUploading">Uploading...</span>
-                    <span v-else>Processing AI...</span>
-                    <svg v-if="isUploading" class="w-4 h-4 animate-spin" fill="none" stroke="currentColor"
+                <button @click="uploadAll" :disabled="isUploading || !allAIProcessed" class="relative px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 
+           disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 w-40 justify-center">
+                    <!-- Text states -->
+                    <template v-if="!isUploading && allAIProcessed">
+                        Upload All
+                    </template>
+                    <template v-else-if="isUploading">
+                        Uploading... {{ uploadProgress }}%
+                    </template>
+                    <template v-else>
+                        Processing AI...
+                    </template>
+
+                    <!-- Spinner -->
+                    <svg v-if="isUploading" class="w-4 h-4 animate-spin ml-2" fill="none" stroke="currentColor"
                         viewBox="0 0 24 24">
                         <circle cx="12" cy="12" r="10" stroke-width="4" stroke-opacity="0.25" />
                         <path d="M4 12a8 8 0 018-8v8H4z" stroke-width="4" stroke-linecap="round"
                             stroke-linejoin="round" />
                     </svg>
+
+                    <!-- Progress bar -->
+                    <div v-if="isUploading"
+                        class="absolute bottom-0 left-0 h-1 bg-blue-300 transition-all duration-300 rounded-b-md"
+                        :style="{ width: uploadProgress + '%' }"></div>
                 </button>
             </div>
+
 
             <!-- Preview + AI Results -->
             <div class="mt-4 grid grid-cols-2 gap-4">
@@ -63,7 +78,8 @@
                         <div v-if="file.tags.length" class="flex flex-wrap gap-1">
                             <span class="font-semibold">Tags:</span>
                             <span v-for="tag in file.tags" :key="tag"
-                                class="bg-blue-100 text-blue-800 px-1 rounded text-xs">{{ tag }}</span>
+                                class="bg-blue-100 text-blue-800 px-1 rounded text-xs">{{ tag
+                                }}</span>
                         </div>
                         <div v-if="file.description" class="truncate">
                             <span class="font-semibold">Desc:</span> {{ file.description }}
@@ -98,6 +114,7 @@ const files = ref([])
 const isDragging = ref(false)
 const fileInput = ref(null)
 const isUploading = ref(false)
+const uploadProgress = ref(0)
 
 const emit = defineEmits(['upload-complete'])
 
@@ -105,6 +122,7 @@ const onDragOver = () => isDragging.value = true
 const onDragLeave = () => isDragging.value = false
 const onDrop = (e) => { isDragging.value = false; handleFiles(e.dataTransfer.files) }
 const onFileChange = () => handleFiles(fileInput.value.files)
+
 
 // ✅ computed property that checks if all AI processing is finished
 const allAIProcessed = computed(() =>
@@ -198,6 +216,7 @@ const uploadAll = async () => {
             headers: { 'Content-Type': 'multipart/form-data', 'X-User-Id': userId },
             onUploadProgress: (e) => {
                 const progress = Math.round((e.loaded / e.total) * 100)
+                uploadProgress.value = progress // ✅ global progress for all files
                 files.value.forEach(f => f.progress = progress)
             }
         })
